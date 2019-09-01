@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<RecordList /> expects render RecordList with mock data correctly 1`] = `ShallowWrapper {}`;
+
+exports[`<RecordList /> expects render empty RecordList correctly 1`] = `ShallowWrapper {}`;
