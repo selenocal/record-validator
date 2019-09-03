@@ -18,7 +18,9 @@ const RecordList = ({ records }) => {
               {records.map(record => (
                 <tr
                   key={
-                    record.attributes ? record.attributes.reference : record[0]
+                    record.attributes
+                      ? record.attributes.reference + record.children[0].value
+                      : record[0] + record[1]
                   }
                 >
                   <td>

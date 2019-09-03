@@ -1,6 +1,6 @@
 import * as actionTypes from "./actionTypes";
+import * as CSV from "csv-string";
 const XMLParser = require("react-xml-parser");
-const csv = require("csvtojson");
 
 export const fetchFileContent = (
   fileContent = [],
@@ -32,7 +32,7 @@ function getFileContent(fileContent, fileExt) {
       if (rand === 0) {
         reject("error message");
       } else {
-        if (fileExt === "csv") {
+        if (fileExt === "csv" || fileExt === "vnd.ms-excel") {
           resolve(getCsvFileContent(fileContent));
         } else {
           resolve(getXmlFileContent(fileContent));
@@ -40,6 +40,56 @@ function getFileContent(fileContent, fileExt) {
       }
     }, 2000);
   });
+}
+
+function getCsvFileContent(fileContent) {
+  const csvContent = CSV.parse(fileContent).filter(
+    content => content[0] !== "Reference"
+  );
+
+  const refList = csvContent.reduce((list, el) => {
+    list[el[0]] = el[0] in list ? ++list[el[0]] : 0;
+    return list;
+  }, {});
+
+  const nonUniqueRefList = csvContent.filter(el => refList[el[0]]);
+  const balanceList = csvContent.filter(record => {
+    const fixed = handleFloatNumber(record[3], record[4]);
+    return (
+      mathOperation[record[4].charAt(0)](
+        record[3],
+        record[4].substr(1)
+      ).toFixed(fixed) !== parseFloat(record[5]).toFixed(fixed)
+    );
+  });
+  const result = [...nonUniqueRefList, ...balanceList];
+  return result;
+}
+
+function getXmlFileContent(fileContent) {
+  const json = new XMLParser().parseFromString(fileContent);
+  const refList = json.children.reduce((list, el) => {
+    list[el.attributes.reference] =
+      el.attributes.reference in list ? ++list[el.attributes.reference] : 0;
+    return list;
+  }, {});
+
+  const nonUniqueRefList = json.children.filter(
+    el => refList[el.attributes.reference]
+  );
+
+  const balanceList = json.children.filter(record => {
+    const start = record.children[2].value;
+    const mutation = record.children[3].value;
+    const fixed = handleFloatNumber(start, mutation);
+    return (
+      mathOperation[mutation.charAt(0)](start, mutation.substr(1)).toFixed(
+        fixed
+      ) !== parseFloat(record.children[4].value).toFixed(fixed)
+    );
+  });
+  const result = [...nonUniqueRefList, ...balanceList];
+  return result;
 }
 
 function handleFloatNumber(startBalance, mutation) {
@@ -56,48 +106,11 @@ function handleFloatNumber(startBalance, mutation) {
   return fixed;
 }
 
-function getCsvFileContent(fileContent) {
-  csv({
-    noheader: true,
-    output: "csv"
-  })
-    .fromString(fileContent)
-    .then(csvRow => {
-      const arr = csvRow.filter(a => {
-        return a[0] !== "Reference";
-      });
-      const list = arr.filter(record => {
-        let fixed = handleFloatNumber(record[3], record[4]);
-        return (
-          eval(record[3] + record[4]).toFixed(fixed) !==
-          parseFloat(record[5]).toFixed(fixed)
-        );
-      });
-      const uniqueReferenceNumbers = Array.from(
-        new Set(list.map(rn => rn[0]))
-      ).map(ref => {
-        return list.find(rn => rn[0] === ref);
-      });
-      return uniqueReferenceNumbers;
-    });
-}
-
-function getXmlFileContent(fileContent) {
-  const json = new XMLParser().parseFromString(fileContent);
-  const list = json.children.filter(record => {
-    const start = record.children[2].value;
-    const mutation = record.children[3].value;
-    const fixed = handleFloatNumber(start, mutation);
-    return (
-      eval(start + mutation).toFixed(fixed) !==
-      parseFloat(record.children[4].value).toFixed(fixed)
-    );
-  });
-
-  const uniqueReferenceNumbers = Array.from(
-    new Set(list.map(rn => rn.attributes.reference))
-  ).map(ref => {
-    return list.find(rn => rn.attributes.reference === ref);
-  });
-  return uniqueReferenceNumbers;
-}
+const mathOperation = {
+  "+": function(x, y) {
+    return parseFloat(x) + parseFloat(y);
+  },
+  "-": function(x, y) {
+    return parseFloat(x) - parseFloat(y);
+  }
+};

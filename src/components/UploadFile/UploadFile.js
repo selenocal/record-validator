@@ -19,7 +19,7 @@ class UploadFile extends Component {
   getResults = () => {
     const { fileContent } = this.state;
     this.fileReader.onloadend = this.handleFileRead;
-    this.fileReader.readAsText(fileContent, "UTF-8");
+    this.fileReader.readAsText(fileContent, "utf8");
   };
 
   render() {
